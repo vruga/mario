@@ -1,0 +1,21 @@
+[project]
+name = "mario-mujoco"
+version = "0.1.0"
+description = "MuJoCo simulation for MARIO manipulator"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mujoco>=3.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+ros = []  # ROS2 deps installed via apt, not pip
+
+[project.scripts]
+mario-viewer = "scripts.viewer:main"
+mario-fk = "scripts.forward_kinematics:main"
+mario-ik = "scripts.inverse_kinematics:main"
+
+[tool.uv]
+dev-dependencies = []

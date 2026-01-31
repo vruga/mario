@@ -1,0 +1,94 @@
+<mujoco model="manipulator">
+  <compiler angle="radian" meshdir="meshes/"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <default>
+    <joint damping="0.1"/>
+    <geom contype="1" conaffinity="1" friction="1 0.005 0.001"/>
+  </default>
+
+  <asset>
+    <texture type="2d" name="groundplane" builtin="checker" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" width="512" height="512"/>
+    <material name="groundplane" texture="groundplane" texrepeat="5 5" reflectance="0.2"/>
+    <mesh name="base_link" file="base_link.STL"/>
+    <mesh name="link_1" file="link_1.STL"/>
+    <mesh name="link_2" file="link_2.STL"/>
+    <mesh name="link_3" file="link_3.STL"/>
+    <mesh name="claw_right" file="claw_right.STL"/>
+    <mesh name="claw_left" file="claw_left.STL"/>
+  </asset>
+
+  <worldbody>
+    <!-- Lighting -->
+    <light name="spotlight" mode="targetbodycom" target="base_link" pos="0.5 -0.5 1" diffuse="0.8 0.8 0.8"/>
+    <light name="ambient" directional="true" pos="0 0 3" dir="0 0 -1" diffuse="0.4 0.4 0.4"/>
+
+    <!-- Ground plane -->
+    <geom name="floor" type="plane" size="1 1 0.1" material="groundplane"/>
+
+    <!-- Camera -->
+    <camera name="fixed" pos="0.4 -0.4 0.4" xyaxes="1 1 0 0 0 1"/>
+
+    <body name="base_link" pos="0 0 0">
+      <inertial pos="0.0021253 0.047935 0.027764" mass="0.0896"
+                diaginertia="5.041e-05 6.5382e-05 0.00010836"/>
+      <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.63 0.63 0.63 1" mesh="base_link"/>
+      <geom type="mesh" rgba="0.63 0.63 0.63 1" mesh="base_link"/>
+
+      <body name="link_1" pos="-0.0030196 0.046937 0.0635">
+        <inertial pos="-0.00017376 -0.015933 0.017371" mass="0.024846"
+                  diaginertia="7.2901e-06 7.00394e-06 3.48566e-06"/>
+        <joint name="joint_1" type="hinge" axis="0 0 1" range="0 3.14"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.79 0.82 0.93 1" mesh="link_1"/>
+        <geom type="mesh" rgba="0.79 0.82 0.93 1" mesh="link_1"/>
+
+        <body name="link_2" pos="0.00031511 -0.0095653 0.034407">
+          <inertial pos="0.05189 -0.0024721 -0.0024701" mass="0.01633"
+                    diaginertia="5.90387e-06 5.41003e-06 6.38002e-07"/>
+          <joint name="joint_2" type="hinge" axis="0 -1 0" range="0 3.14"/>
+          <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.79 0.82 0.93 1" mesh="link_2"/>
+          <geom type="mesh" rgba="0.79 0.82 0.93 1" mesh="link_2"/>
+
+          <body name="link_3" pos="0.071531 0.011279 -0.0041348">
+            <inertial pos="0.0037357 -0.001707 -0.066045" mass="0.019923"
+                      diaginertia="5.68037e-06 5.21919e-06 1.35774e-06"/>
+            <joint name="joint_3" type="hinge" axis="0 -1 0" range="0 3.14"/>
+            <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.79 0.82 0.93 1" mesh="link_3"/>
+            <geom type="mesh" rgba="0.79 0.82 0.93 1" mesh="link_3"/>
+
+            <!-- End-effector site for FK/IK calculations -->
+            <site name="end_effector" pos="0.015 0 -0.09" size="0.008" rgba="1 0 0 1"/>
+
+            <body name="claw_right" pos="0.020925 -0.013767 -0.090331">
+              <inertial pos="0.0018122 0.0028283 -0.0079472" mass="0.013225"
+                        diaginertia="3.26056e-06 2.74053e-06 5.28882e-07"/>
+              <joint name="joint_4" type="hinge" axis="-1 0 0" range="0 0.8"/>
+              <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.78 0.76 0.74 1" mesh="claw_right"/>
+              <geom type="mesh" rgba="0.78 0.76 0.74 1" mesh="claw_right"/>
+            </body>
+
+            <body name="claw_left" pos="0.0091023 0.0182709 -0.090512">
+              <inertial pos="0.013771 0.012345 -0.01495" mass="0.013641"
+                        diaginertia="3.44493e-06 2.82052e-06 6.33506e-07"/>
+              <joint name="joint_5" type="hinge" axis="1 0 0" range="0 0.8"/>
+              <geom pos="0 -0.014 0.0075" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.78 0.76 0.74 1" mesh="claw_left"/>
+              <geom type="mesh" rgba="0.78 0.76 0.74 1" mesh="claw_left"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="act_joint_1" joint="joint_1" kp="10"/>
+    <position name="act_joint_2" joint="joint_2" kp="10"/>
+    <position name="act_joint_3" joint="joint_3" kp="10"/>
+    <position name="act_joint_4" joint="joint_4" kp="5"/>
+    <position name="act_joint_5" joint="joint_5" kp="5"/>
+  </actuator>
+</mujoco>
