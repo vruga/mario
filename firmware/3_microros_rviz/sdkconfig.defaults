@@ -1,0 +1,11 @@
+# micro-ROS transport: wired USB serial (UART0)
+# Connect ESP32 via USB cable. Run agent on Mac:
+#   MicroXRCEAgent serial --dev /dev/cu.usbserial-* -b 115200
+CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE=y
+CONFIG_MICRO_ROS_ESP_UART_TRANSPORT=y
+
+# UART0 default pins (-1 = no change, uses built-in USB-serial chip)
+CONFIG_MICROROS_UART_TXD=-1
+CONFIG_MICROROS_UART_RXD=-1
+CONFIG_MICROROS_UART_RTS=-1
+CONFIG_MICROROS_UART_CTS=-1

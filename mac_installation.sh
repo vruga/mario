@@ -139,10 +139,16 @@ mamba install -n ros_env -y \
     ros-humble-controller-manager-msgs \
     ros-humble-joint-trajectory-controller \
     ros-humble-xacro \
-    ros-humble-rviz2 \
     catkin_tools \
     colcon-common-extensions \
     rosdep
+
+# Install Python visualization dependencies (Rerun replaces RViz on Mac)
+echo "${blue}======================${reset}"
+echo "Installing Python visualization dependencies"
+echo "${blue}======================${reset}"
+
+pip install rerun-sdk trimesh numpy
 
 # Add environment activation to shell config
 if ! grep -q "conda activate ros_env" $HOME/."$_shell_"rc; then
@@ -201,15 +207,6 @@ else
     echo "${green}ROS folders are already copied${reset}"
 fi
 
-# Set up microROS Agent
-echo "${blue}======================${reset}"
-echo "Setting up microROS Agent"
-echo "${blue}======================${reset}"
-
-cd $HOME/ros2_ws/src
-pip3 install catkin_pkg lark-parser
-git clone -b humble https://github.com/micro-ROS/micro-ROS-Agent.git
-
 # Build the workspace
 echo "${blue}======================${reset}"
 echo "Building the workspace"
@@ -219,14 +216,47 @@ cd $HOME/ros2_ws
 conda activate ros_env
 colcon build
 
+# Set up micro-ROS Agent natively (no Docker needed)
+# On macOS, Docker Desktop cannot pass through USB devices, so we build
+# Micro-XRCE-DDS-Agent (the same underlying tool) natively using Homebrew.
+# This supports wired serial transport via USB.
+echo "${blue}======================${reset}"
+echo "Setting up micro-ROS Agent (native, wired USB support)"
+echo "${blue}======================${reset}"
+
+brew install asio tinyxml2 openssl
+
+if [ ! -d "$HOME/Micro-XRCE-DDS-Agent" ]; then
+    git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git $HOME/Micro-XRCE-DDS-Agent
+fi
+
+cd $HOME/Micro-XRCE-DDS-Agent
+cmake -Bbuild -DCMAKE_BUILD_TYPE=Release -DUAGENT_USE_SYSTEM_LOGGER=ON \
+    -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)
+cmake --build build --parallel
+sudo cmake --install build
+
+echo "${green}MicroXRCEAgent installed.${reset}"
+echo ""
+echo "To start the micro-ROS agent (wired USB serial), run:"
+echo "  MicroXRCEAgent serial --dev /dev/cu.usbserial-* -b 115200"
+echo "(replace /dev/cu.usbserial-* with the actual port shown in 'ls /dev/cu.*')"
+
+# Add microros_agent alias to shell config
+if ! grep -q "alias microros_agent" $HOME/."$_shell_"rc; then
+    echo "" >> $HOME/."$_shell_"rc
+    echo "# Start micro-ROS agent for MARIO (wired USB serial)" >> $HOME/."$_shell_"rc
+    echo "alias microros_agent='MicroXRCEAgent serial --dev \$(ls /dev/cu.usbserial-* /dev/cu.SLAB_USBtoUART 2>/dev/null | head -1) -b 115200'" >> $HOME/."$_shell_"rc
+fi
+
 # Note about Ignition/Gazebo
 echo "${blue}======================${reset}"
 echo "Note about Ignition/Gazebo on macOS"
 echo "${blue}======================${reset}"
 echo "Ignition Fortress is not fully supported on macOS through conda packages."
-echo "If you need Gazebo simulation, consider using a Linux virtual machine or dual boot."
+echo "Use a Linux VM or dual boot for Gazebo simulation."
 
 echo "${green}======================${reset}"
 echo "Installation completed successfully!"
 echo "Please restart your terminal to apply all changes."
-echo "${green}======================${reset}"n
+echo "${green}======================${reset}"

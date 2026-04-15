@@ -1,0 +1,23 @@
+{
+    "names": {
+        "microxrcedds_client": {
+            "cmake-args": [
+                "-Dmicrocdr_DIR=/Users/vrushtee/MARIO/firmware/components/micro_ros_espidf_component/micro_ros_src/install/share/microcdr/cmake",
+                "-DCMAKE_PREFIX_PATH=/Users/vrushtee/MARIO/firmware/components/micro_ros_espidf_component/micro_ros_src/install",
+                "-DUCLIENT_PROFILE_CUSTOM_TRANSPORT=ON"
+            ]
+        },
+        "rmw_microxrcedds": {
+            "cmake-args": [
+                "-DRMW_UXRCE_TRANSPORT=custom",
+                "-DRMW_UXRCE_XML_BUFFER_LENGTH=400",
+                "-DRMW_UXRCE_MAX_NODES=1",
+                "-DRMW_UXRCE_MAX_PUBLISHERS=2",
+                "-DRMW_UXRCE_MAX_SUBSCRIPTIONS=2",
+                "-DRMW_UXRCE_MAX_SERVICES=1",
+                "-DRMW_UXRCE_MAX_CLIENTS=1",
+                "-DRMW_UXRCE_MAX_HISTORY=1"
+            ]
+        }
+    }
+}
