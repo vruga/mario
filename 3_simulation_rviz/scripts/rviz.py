@@ -162,25 +162,34 @@ def main():
 
     node = ArmVisualizer(meshes)
     node.get_logger().info("MARIO Robot Arm — Rerun Visualizer")
-    print("Enter joint angles in degrees [0–180]. Ctrl+C to exit.\n")
+    print("Enter 5 joint angles in degrees on one line:")
+    print("  base  shoulder  elbow  claw1  claw2   (all 0–180)")
+    print("Ctrl+C to exit.\n")
 
     try:
         while True:
             try:
-                base     = float(input("theta_base:     "))
-                shoulder = float(input("theta_shoulder: "))
-                elbow    = float(input("theta_elbow:    "))
-                claw1    = float(input("theta_claw 1:   "))
-                claw2    = float(input("theta_claw 2:   "))
+                line = input("angles> ").strip()
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting.")
                 break
+
+            if not line:
+                continue
+
+            parts = line.split()
+            if len(parts) != 5:
+                print("  Need exactly 5 values, e.g.:  90 90 90 90 90")
+                continue
+
+            try:
+                base, shoulder, elbow, claw1, claw2 = [float(p) for p in parts]
             except ValueError:
-                print("Invalid input — enter a number.")
+                print("  Invalid number.")
                 continue
 
             if not all(0.0 <= a <= 180.0 for a in [base, shoulder, elbow, claw1, claw2]):
-                print("All angles must be in [0, 180].")
+                print("  All angles must be in [0, 180].")
                 continue
 
             node.publish_and_visualize(base, shoulder, elbow, claw1, claw2)
