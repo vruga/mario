@@ -5,6 +5,7 @@ find_package(ament_cmake REQUIRED)
 
 install(PROGRAMS
   scripts/rviz.py
+  scripts/control.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

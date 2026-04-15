@@ -52,7 +52,7 @@ SOFTWARE.
 #define pi 3.141592653589
 
 //defined macros
-#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Aborting.\n",__LINE__,(int)temp_rc);vTaskDelete(NULL);}}
+#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Restarting.\n",__LINE__,(int)temp_rc);esp_restart();}}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){printf("Failed status on line %d: %d. Continuing.\n",__LINE__,(int)temp_rc);}}
 #define ARRAY_LEN 200
 #define JOINT_DOUBLE_LEN 5
@@ -127,9 +127,45 @@ void micro_ros_task(void * arg)
 {
 	memset(test_array,'z',ARRAY_LEN);
 	rcl_allocator_t allocator = rcl_get_default_allocator();
+	rclc_support_t support;
 	enable_servo();
 
-	// Allocate message buffers once (reused across reconnects).
+	// Wait until the micro-ROS agent is reachable.
+	printf("Waiting for micro-ROS agent...\n");
+	while (rmw_uros_ping_agent(1000, 1) != RMW_RET_OK) {
+		vTaskDelay(pdMS_TO_TICKS(500));
+	}
+	printf("Agent found!\n");
+
+	// Init support, node, subscriber, executor — restart ESP32 on any failure
+	// so the transport stack starts completely fresh on the next boot.
+#if defined(CONFIG_MICRO_ROS_ESP_NETIF_WLAN) || defined(CONFIG_MICRO_ROS_ESP_NETIF_ENET)
+	rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
+	RCCHECK(rcl_init_options_init(&init_options, allocator));
+	#ifdef CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE
+		rmw_init_options_t* rmw_options = rcl_init_options_get_rmw_init_options(&init_options);
+		RCCHECK(rmw_uros_options_set_udp_address(CONFIG_MICRO_ROS_AGENT_IP, CONFIG_MICRO_ROS_AGENT_PORT, rmw_options));
+	#endif
+	RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
+#else
+	RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+#endif
+
+	rcl_node_t node = rcl_get_zero_initialized_node();
+	RCCHECK(rclc_node_init_default(&node, "joint_state_sub", "", &support));
+
+	RCCHECK(rclc_subscription_init_default(
+		&subscriber,
+		&node,
+		ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
+		"/joint_states"));
+
+	rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
+	RCCHECK(rclc_executor_init(&executor, &support.context, 2, &allocator));
+	RCCHECK(rclc_executor_set_timeout(&executor, RCL_MS_TO_NS(1000)));
+	RCCHECK(rclc_executor_add_subscription(&executor, &subscriber, &recv_msg, &subscription_callback, ON_NEW_DATA));
+
+	// Set up message receive buffers.
 	rosidl_runtime_c__String string_buffer[JOINT_DOUBLE_LEN];
 	recv_msg.name.data = string_buffer;
 	recv_msg.name.size = 0;
@@ -146,62 +182,12 @@ void micro_ros_task(void * arg)
 	recv_msg.velocity.size = 0;
 	recv_msg.velocity.capacity = JOINT_DOUBLE_LEN;
 
-	while (true) {
-		// Wait until the micro-ROS agent is reachable.
-		printf("Waiting for micro-ROS agent...\n");
-		while (rmw_uros_ping_agent(1000, 1) != RMW_RET_OK) {
-			vTaskDelay(pdMS_TO_TICKS(500));
-		}
-		printf("Agent found! Initializing...\n");
+	printf("Running.\n");
+	rclc_executor_spin(&executor);
 
-		rclc_support_t support;
-		bool init_ok = true;
-
-		// Setup support structure.
-#if defined(CONFIG_MICRO_ROS_ESP_NETIF_WLAN) || defined(CONFIG_MICRO_ROS_ESP_NETIF_ENET)
-		rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
-		if (rcl_init_options_init(&init_options, allocator) != RCL_RET_OK) { init_ok = false; }
-		#ifdef CONFIG_MICRO_ROS_ESP_XRCE_DDS_MIDDLEWARE
-		if (init_ok) {
-			rmw_init_options_t* rmw_options = rcl_init_options_get_rmw_init_options(&init_options);
-			if (rmw_uros_options_set_udp_address(CONFIG_MICRO_ROS_AGENT_IP, CONFIG_MICRO_ROS_AGENT_PORT, rmw_options) != RCL_RET_OK) { init_ok = false; }
-		}
-		#endif
-		if (init_ok && rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator) != RCL_RET_OK) { init_ok = false; }
-#else
-		if (rclc_support_init(&support, 0, NULL, &allocator) != RCL_RET_OK) { init_ok = false; }
-#endif
-
-		rcl_node_t node = rcl_get_zero_initialized_node();
-		if (init_ok && rclc_node_init_default(&node, "joint_state_sub", "", &support) != RCL_RET_OK) { init_ok = false; }
-
-		if (init_ok && rclc_subscription_init_default(
-				&subscriber, &node,
-				ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
-				"/joint_states") != RCL_RET_OK) { init_ok = false; }
-
-		rclc_executor_t executor = rclc_executor_get_zero_initialized_executor();
-		if (init_ok && rclc_executor_init(&executor, &support.context, 2, &allocator) != RCL_RET_OK) { init_ok = false; }
-		if (init_ok) { rclc_executor_set_timeout(&executor, RCL_MS_TO_NS(1000)); }
-		if (init_ok && rclc_executor_add_subscription(&executor, &subscriber, &recv_msg, &subscription_callback, ON_NEW_DATA) != RCL_RET_OK) { init_ok = false; }
-
-		if (init_ok) {
-			printf("Running.\n");
-			rclc_executor_spin(&executor);
-			printf("Connection lost. Cleaning up...\n");
-		} else {
-			printf("Init failed. Retrying...\n");
-		}
-
-		// Cleanup before reconnecting.
-		rcl_subscription_fini(&subscriber, &node);
-		rcl_node_fini(&node);
-		rclc_support_fini(&support);
-
-		vTaskDelay(pdMS_TO_TICKS(1000));
-	}
-
-	vTaskDelete(NULL);
+	// Executor returned — agent disconnected. Restart ESP32 for a clean reconnect.
+	printf("Connection lost. Restarting...\n");
+	esp_restart();
 }
 
 void app_main(void)
